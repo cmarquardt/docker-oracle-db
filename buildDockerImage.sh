@@ -12,7 +12,7 @@
 usage() {
   cat << EOF
 
-Usage: buildDockerImage.sh -v [version] [-e | -s | -x] [-i]
+Usage: buildDockerImage.sh -v [version] [-e | -s | -x] [-i] [-n]
 Builds a Docker Image for Oracle Database.
   
 Parameters:
@@ -21,6 +21,7 @@ Parameters:
    -e: creates image based on 'Enterprise Edition'
    -s: creates image based on 'Standard Edition 2'
    -x: creates image based on 'Express Edition'
+   -n: do *not* squash the generated image
    -i: ignores the MD5 checksums
 
 * select one edition only: -e, -s, or -x
@@ -62,9 +63,9 @@ STANDARD=0
 EXPRESS=0
 VERSION="12.1.0.2"
 SKIPMD5=0
-DOCKEROPS=""
+DOCKEROPS="--squash"
 
-while getopts "hesxiv:" optname; do
+while getopts "hesxinv:" optname; do
   case "$optname" in
     "h")
       usage
@@ -80,6 +81,9 @@ while getopts "hesxiv:" optname; do
       ;;
     "x")
       EXPRESS=1
+      ;;
+    "n")
+      DOCKEROPS=""
       ;;
     "v")
       VERSION="$OPTARG"
@@ -103,11 +107,11 @@ elif [ $EXPRESS -eq 1 ] && [ "$VERSION" = "12.1.0.2" ]; then
   exit 1
 else
   EDITION="xe";
-  DOCKEROPS="--shm-size=1G";
+  DOCKEROPS="$DOCKEROPS --shm-size=1G";
 fi
 
 # Oracle Database Image Name
-IMAGE_NAME="oracle/database:$VERSION-$EDITION"
+IMAGE_NAME="marq/oracle-db:$VERSION-$EDITION"
 
 # Go into version folder
 cd $VERSION
@@ -151,7 +155,7 @@ echo "Building image '$IMAGE_NAME' ..."
 
 # BUILD THE IMAGE (replace all environment variables)
 BUILD_START=$(date '+%s')
-docker build --force-rm=true --no-cache=true $DOCKEROPS $PROXY_SETTINGS -t $IMAGE_NAME -f Dockerfile.$EDITION . || {
+docker build $DOCKEROPS $PROXY_SETTINGS -t $IMAGE_NAME -f Dockerfile.$EDITION . || {
   echo "There was an error building the image."
   exit 1
 }
