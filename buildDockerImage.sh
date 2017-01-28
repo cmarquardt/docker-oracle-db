@@ -111,7 +111,7 @@ else
 fi
 
 # Oracle Database Image Name
-IMAGE_NAME="marq/oracle-db:$VERSION-$EDITION"
+IMAGE_NAME="marq/oracle-db-base:$VERSION-$EDITION"
 
 # Go into version folder
 cd $VERSION
