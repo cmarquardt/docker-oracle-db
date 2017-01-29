@@ -155,7 +155,7 @@ echo "Building image '$IMAGE_NAME' ..."
 
 # BUILD THE IMAGE (replace all environment variables)
 BUILD_START=$(date '+%s')
-docker build $DOCKEROPS $PROXY_SETTINGS -t $IMAGE_NAME -f Dockerfile.$EDITION . || {
+docker build $DOCKEROPS $PROXY_SETTINGS -t $IMAGE_NAME -f Dockerfile.$EDITION-base . || {
   echo "There was an error building the image."
   exit 1
 }
