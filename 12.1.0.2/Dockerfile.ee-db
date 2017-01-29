@@ -1,0 +1,61 @@
+# LICENSE CDDL 1.0 + GPL 2.0
+#
+# Copyright (c) 2017 Christian Marquardt. All rights reserved.
+#
+# ORACLE DOCKERFILES PROJECT
+# --------------------------
+# This is the Dockerfile for Oracle Database 12c Release 1 Enterprise Edition
+# with an empty database instance.
+# 
+# REQUIRED FILES TO BUILD THIS IMAGE
+# ----------------------------------
+# (1) marq/orracle-db-base:12.1.0.2-ee
+#
+# HOW TO BUILD THIS IMAGE
+# -----------------------
+# Put all downloaded files in the same directory as this Dockerfile
+# Run: 
+#      $ docker build -t marq/oracle-db-base:12.1.0.2-ee . 
+#
+# Pull base image
+# ---------------
+FROM marq/oracle-db-base:12.1.0.2-ee
+
+# Maintainer
+# ----------
+MAINTAINER Christian Marquardt <christian@marquardt.sc>
+
+# Environment variables and build arguments
+# -----------------------------------------
+# Defined in the base image: 
+#   ORACLE_BASE, RUN_FILE
+# Used (if set via --build-args): 
+#   ORACLE_SID, ORACLE_PDB, ORACLE_PWD
+
+ARG ORACLE_SID
+ARG ORACLE_PDB
+ARG ORACLE_PWD
+
+ENV BUILD_DB_FILE="buildOracle.sh" \
+    ORACLE_SID=${ORACLE_SID:-ORCLCDB} \
+    ORACLE_PDB=${ORACLE_PDB:-ORCLPDB1}
+
+# Copy DB creation script
+# -----------------------
+USER root
+COPY $BUILD_DB_FILE $ORACLE_BASE
+
+# Set up the Database
+# -------------------
+USER oracle
+WORKDIR /home/oracle
+
+RUN $ORACLE_BASE/$BUILD_DB_FILE && \
+    if [ "x$ORACLE_PWD" != "x" ]; then $ORACLE_BASE/$PWD_FILE $ORACLE_PWD ; fi
+
+# Exposing ports
+# --------------
+EXPOSE 1521 5500
+    
+# Define default command to start Oracle Database. 
+CMD $ORACLE_BASE/$RUN_FILE
