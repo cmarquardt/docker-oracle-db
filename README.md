@@ -4,34 +4,37 @@ Oracle Database Containers for Docker
 This repository contains sample Docker files to facilitate the installation, configuration, and environment setup for DevOps users. They are based on Dockerfiles provided in [Oracle's GitHub repository](https://github.com/oracle/docker-images). In contrast to the original Dockerfiles, the ones provided here
 
 * do not export the `/opt/oracle/oradata` directory from the images (as volumes can also assigned as part of the `docker container run` command, or in a `docker-compose` file);
-* provide a second image containing a pre-initialised database.
+* provide a second image containing a pre-initialised, but otherwise empty database.
 
-The latter has the advantage that the startup time for a container based on the image is greatly reduced as the database doesn't have to be initialised any more.
+The first image is intended to be used as a base image for other ones; in particular, it doesn't contain volume statements. This allows the imaged derived from the base image to optionally initialise databases inside the container. A possible application is to set up a test data base which is self-contained in the container, allowing testing against an Oracle instance with a significantly reduced start-up time. The second image is an example for this; it initialises an empty database inside the container.
 
 For more information about Oracle Database please see the [Oracle Database Online Documentation](http://docs.oracle.com/database/121/index.htm).
 
-## How to build and run
-This project offers sample Dockerfiles for both Oracle Database 12c (12.1.0.2) Enterprise Edition and Standard Edition. To assist in building the images, you can use the [buildDockerImage.sh](buildDockerImage.sh) script. See below for instructions and usage.
+The following is taken from the orginal Dockerfie documentation / Oracle GitHub repository:
 
-The `buildDockerImage.sh` script is a utility shell script that performs MD5 checks and is an easy way to get started. Expert users are welcome to directly call `docker build` with their prefered set of parameters.
+## How to Build and Run the Base Images
+This project offers sample Dockerfiles for both Oracle Database 12c (12.1.0.2) Enterprise Edition and Standard Edition, or the 11g Express edition. To assist in building the images, you can use the [buildDockerImage.sh](buildDockerImage.sh) script. See below for instructions and usage.
 
-### Building Oracle Database Docker Install Images
-**IMPORTANT:** You will have to provide the installation binaries of Oracle Database and put them into the `dockerfiles/<version>` folder. You only need to provide the binaries for the edition you are going to install. The binaries can be downloaded from the [Oracle Technology Network](http://www.oracle.com/technetwork/database/enterprise-edition/downloads/index.html). You also have to make sure to have internet connectivity for yum. Note that you must not uncompress the binaries. The script will handle that for you and fail if you uncompress them manually!
+The `buildDockerImage.sh` script is a utility shell script that performs MD5 checks and is an easy way to get started. Expert users may prefer to directly call `docker build` with their prefered set of parameters.
 
-Before you build the image make sure that you have provided the installation binaries and put them into the right folder. Once you have chosen which edition and version you want to build an image of, go into the **dockerfiles** folder and run the **buildDockerImage.sh** script as root or with `sudo` privileges:
+### Building Oracle Database Docker Base Images
+**IMPORTANT:** You will have to provide the installation binaries of Oracle Database and put them into the `12.1.0.2` folder (or into the `11.2.0.2` folder for the Express Edition). You only need to provide the binaries for the edition you are going to install. The binaries can be downloaded from the [Oracle Technology Network](http://www.oracle.com/technetwork/database/enterprise-edition/downloads/index.html). You also have to make sure to have internet connectivity for yum. Note that the `.zip` files do not have to be unpacked manually; the script will handle this task.
+
+Before you build the image make sure that you have provided the installation binaries and put them into the right folder. Once you have chosen which edition and version you want to build an image of, go into the `12.1.0.2` (for the Standard and Enterprise Edition) or `11.2.0.2` (for the Express Edition) folder and run the `buildDockerImage.sh` script as `root` or with `sudo` privileges:
 
 	[oracle@localhost dockerfiles]$ ./buildDockerImage.sh -h
 
-	Usage: buildDockerImage.sh -v [version] [-e | -s | -x] [-i]
+	Usage: buildDockerImage.sh -v [version] [-e | -s | -x] [-i] [-n]
 	Builds a Docker Image for Oracle Database.
 
 	Parameters:
-	   -v: version to build
-	       Choose one of: 11.2.0.2  12.1.0.2
-	   -e: creates image based on 'Enterprise Edition'
-	   -s: creates image based on 'Standard Edition 2'
-	   -x: creates image based on 'Express Edition'
-	   -i: ignores the MD5 checksums
+     -v: version to build
+         Choose one of: 11.2.0.2  12.1.0.2
+     -e: creates image based on 'Enterprise Edition'
+     -s: creates image based on 'Standard Edition 2'
+     -x: creates image based on 'Express Edition'
+     -n: do *not* squash the generated image
+     -i: ignores the MD5 checksums
 
 	* select one edition only: -e, -s, or -x
 
@@ -39,13 +42,25 @@ Before you build the image make sure that you have provided the installation bin
 
 	Copyright (c) 2014-2016 Oracle and/or its affiliates. All rights reserved.
 
-**IMPORTANT:** The resulting images will be an image with the Oracle binaries installed. On first startup of the container a new database will be created, the following lines highlight when the database is ready to be used:
+For the Standard and Enterprise Editions, this script will use the `Dockerfile.se-base` and `Dockerfile.ee-base` respectively; those Dockerfiles should also be exploited when building the images manually.
+
+Note that the resulting base images will be an image with the Oracle binaries installed, but without a database having been created. This happens on the first startup of the container, during which a new database will be initialised. This may require several minutes; after the database initialisation has been completed, the following output will highlight that the new database is ready to be used:
 
 	#########################
 	DATABASE IS READY TO USE!
 	#########################
 
-You may extend the image with your own Dockerfile and create the users and tablespaces that you may need.
+If the same container is launched and finds an initialiased data base (e.g. because the actual database files were initialised before), it will simply use them as they are. That way, a new database is created upon the first launch of a container, and will be used as is subsequently.
+
+In most real applications, it probably makes sense to export the `/opt/oracle/oradata` as external volume to maintain the actual database across launches of new containers.
+
+### Building Oracle Database Test Images
+
+The Dockerfiles `Dockerfile.se-db` and `Dockerfile.ee-db` create images based on the base images described above; the difference is that a database has already been initialised inside the container. This significantly reduces the startup time of the initial launch of the container, which might be useful in a testing scenario.
+
+Note that no volume is exported here; modifications to the database will be removed with the container. *If* `/opt/oracle/oradata` is exported, the contents of the pre-initialised database will be replaced with whatever is contained in the external data volume; if it doe not contain an Oracle database initilised by one of the Docker images described here, a new initialisation will take place, as for the base image.
+
+The test images can be created by running `docker build` on the respective Dockerfiles manually.
 
 ### Running Oracle Database in a Docker container
 
@@ -138,12 +153,12 @@ Another option is to use `docker exec` and run `sqlplus` from within the same co
 
 ## Support
 Oracle Database in single instance configuration is supported for Oracle Linux 7 and Red Hat Enterprise Linux (RHEL) 7.
-For more details please see My Oracle Support note: **Oracle Support for Database Running on Docker (Doc ID 2216342.1)**
+For more details please see the original Oracle Support note: **Oracle Support for Database Running on Docker (Doc ID 2216342.1)**
 
 ## License
 To download and run Oracle Database, regardless whether inside or outside a Docker container, you must download the binaries from the Oracle website and accept the license indicated at that page.
 
-All scripts and files hosted in this project and GitHub [docker-images/OracleDatabase](./) repository required to build the Docker images are, unless otherwise noted, released under the Common Development and Distribution License (CDDL) 1.0 and GNU Public License 2.0 licenses.
+The original versions of all scripts and files hosted in this GitHub project ([marq/oracle-db](./)) are based on Oracle's original [docker-images](https://github.com/oracle/docker-images) repository on GitHub. They are thus, unless otherwise noted, released under the Common Development and Distribution License (CDDL) 1.0 and GNU Public License 2.0 licenses.
 
 ## Copyright
 Copyright (c) 2014-2016 Oracle and/or its affiliates. All rights reserved.
